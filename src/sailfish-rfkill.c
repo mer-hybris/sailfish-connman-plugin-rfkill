@@ -35,51 +35,20 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
+#include <linux/rfkill.h>
 #include <bluetooth/bluetooth.h>
 #include <bluetooth/hci.h>
 
 #define CONNMAN_API_SUBJECT_TO_CHANGE
 #include <connman/plugin.h>
 #include <connman/device.h>
+#include <connman/technology.h>
 
 #define BLUETOOTH_RFKILL_IDENT "bluetooth_rfkill"
 
 #define BT_DEVICE 0
 
 static struct connman_device *bt_device = NULL;
-
-struct connman_technology;
-
-struct connman_technology_driver {
-	const char *name;
-	enum connman_service_type type;
-	int priority;
-	int (*probe) (struct connman_technology *technology);
-	void (*remove) (struct connman_technology *technology);
-	void (*add_interface) (struct connman_technology *technology,
-						int index, const char *name,
-							const char *ident);
-	void (*remove_interface) (struct connman_technology *technology,
-								int index);
-	int (*set_tethering) (struct connman_technology *technology,
-				const char *identifier, const char *passphrase,
-				const char *bridge, bool enabled);
-	int (*set_regdom) (struct connman_technology *technology,
-						const char *alpha2);
-	void (*set_offline) (bool offline);
-};
-
-struct rfkill_event {
-	uint32_t idx;
-	uint8_t  type;
-	uint8_t  op;
-	uint8_t  soft;
-	uint8_t  hard;
-};
-
-int connman_technology_driver_register(struct connman_technology_driver *driver);
-
-void connman_technology_driver_unregister(struct connman_technology_driver *driver);
 
 static void DEBUG(const char *format, ...)
 {
@@ -99,7 +68,7 @@ void rfkill_block(bool block)
 	int fd;
 
 	DEBUG("block %d", block);
-	rfkill_type = 2; /* RFKILL_TYPE_BLUETOOTH */
+	rfkill_type = RFKILL_TYPE_BLUETOOTH;
 
 	fd = open("/dev/rfkill", O_RDWR | O_CLOEXEC);
 	if (fd < 0) {
@@ -108,7 +77,7 @@ void rfkill_block(bool block)
 	}
 
 	memset(&event, 0, sizeof(event));
-	event.op = 3;/* RFKILL_OP_CHANGE_ALL */
+	event.op = RFKILL_OP_CHANGE_ALL;
 	event.type = rfkill_type;
 	event.soft = block;
 
@@ -252,5 +221,6 @@ static void sailfish_rfkill_exit(void)
 	connman_device_driver_unregister(&dev_driver);
 }
 
-CONNMAN_PLUGIN_DEFINE(sailfish_rfkill, "Sailfish rfkill", CONNMAN_VERSION, CONNMAN_PLUGIN_PRIORITY_DEFAULT,
-                      sailfish_rfkill_init, sailfish_rfkill_exit)
+CONNMAN_PLUGIN_DEFINE(sailfish_rfkill, "Sailfish rfkill", CONNMAN_VERSION,
+		CONNMAN_PLUGIN_PRIORITY_DEFAULT, sailfish_rfkill_init,
+		sailfish_rfkill_exit)
