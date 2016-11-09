@@ -9,9 +9,6 @@ Source: %{name}-%{version}.tar.bz2
 Requires: bluez
 Requires: bluez-libs
 Requires: connman
-BuildRequires: pkgconfig(glib-2.0)
-BuildRequires:  pkgconfig(dbus-1)
-BuildRequires: bluez-libs
 BuildRequires: bluez-libs-devel
 BuildRequires: connman-devel
 Requires(post): /sbin/ldconfig
@@ -24,7 +21,7 @@ This package contains the Sailfish Connman rfkill plugin library.
 %setup -q -n %{name}-%{version}
 
 %build
-make %{?jobs:-j%jobs}
+make %{?jobs:-j%jobs} release
 
 %install
 rm -rf %{buildroot}
