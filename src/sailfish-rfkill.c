@@ -35,12 +35,14 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
+#include <linux/rfkill.h>
 #include <bluetooth/bluetooth.h>
 #include <bluetooth/hci.h>
 
 #define CONNMAN_API_SUBJECT_TO_CHANGE
 #include <connman/plugin.h>
 #include <connman/device.h>
+#include <connman/technology.h>
 
 #define BLUETOOTH_RFKILL_IDENT "bluetooth_rfkill"
 
@@ -48,48 +50,16 @@
 
 static struct connman_device *bt_device = NULL;
 
-struct connman_technology;
-
-struct connman_technology_driver {
-	const char *name;
-	enum connman_service_type type;
-	int priority;
-	int (*probe) (struct connman_technology *technology);
-	void (*remove) (struct connman_technology *technology);
-	void (*add_interface) (struct connman_technology *technology,
-						int index, const char *name,
-							const char *ident);
-	void (*remove_interface) (struct connman_technology *technology,
-								int index);
-	int (*set_tethering) (struct connman_technology *technology,
-				const char *identifier, const char *passphrase,
-				const char *bridge, bool enabled);
-	int (*set_regdom) (struct connman_technology *technology,
-						const char *alpha2);
-	void (*set_offline) (bool offline);
-};
-
-struct rfkill_event {
-	uint32_t idx;
-	uint8_t  type;
-	uint8_t  op;
-	uint8_t  soft;
-	uint8_t  hard;
-};
-
-int connman_technology_driver_register(struct connman_technology_driver *driver);
-
-void connman_technology_driver_unregister(struct connman_technology_driver *driver);
-
-static void DEBUG(const char *format, ...)
-{
-	openlog("sailfish-rfkill", LOG_PID, LOG_USER);
-	va_list v;
-	va_start(v, format);
-	vsyslog(LOG_INFO, format, v);
-	va_end(v);
-	closelog();
-}
+#undef DBG
+#ifdef DEBUG
+#  define DBG(fmt,arg...) syslog(LOG_DEBUG, "%s() " fmt, __FUNCTION__ , ## arg)
+#else
+#  define DBG(fmt,arg...)
+#endif
+#define INFO(fmt,arg...) \
+	syslog(LOG_INFO, BLUETOOTH_RFKILL_IDENT ": " fmt, ## arg)
+#define ERR(fmt,arg...) \
+	syslog(LOG_ERR, BLUETOOTH_RFKILL_IDENT ": " fmt, ## arg)
 
 void rfkill_block(bool block)
 {
@@ -98,23 +68,23 @@ void rfkill_block(bool block)
 	ssize_t len;
 	int fd;
 
-	DEBUG("block %d", block);
-	rfkill_type = 2; /* RFKILL_TYPE_BLUETOOTH */
+	DBG("block %d", block);
+	rfkill_type = RFKILL_TYPE_BLUETOOTH;
 
 	fd = open("/dev/rfkill", O_RDWR | O_CLOEXEC);
 	if (fd < 0) {
-		DEBUG("Failed to change RFKILL state:%s", strerror(errno));
+		ERR("Failed to change RFKILL state: %s", strerror(errno));
 		return;
 	}
 
 	memset(&event, 0, sizeof(event));
-	event.op = 3;/* RFKILL_OP_CHANGE_ALL */
+	event.op = RFKILL_OP_CHANGE_ALL;
 	event.type = rfkill_type;
 	event.soft = block;
 
 	len = write(fd, &event, sizeof(event));
 	if (len < 0) {
-		DEBUG("Failed to change RFKILL state:%s", strerror(errno));
+		ERR("Failed to change RFKILL state: %s", strerror(errno));
 	}
 
 	close(fd);
@@ -126,11 +96,11 @@ static int bluetooth_rfkill_device_probe(struct connman_device *device)
 	int fd = -1;
 	int r = 0;
 
-	DEBUG("device %p", device);
+	DBG("device %p", device);
 
 	fd = socket(AF_BLUETOOTH, SOCK_RAW, BTPROTO_HCI);
 	if (fd < 0) {
-		DEBUG("Cannot open BT socket: %s(%d)", strerror(errno), errno);
+		ERR("Cannot open BT socket: %s (%d)", strerror(errno), errno);
 		r = -errno;
 		goto out;
 	}
@@ -138,13 +108,13 @@ static int bluetooth_rfkill_device_probe(struct connman_device *device)
 	memset(&dev_info, 0, sizeof(dev_info));
 	dev_info.dev_id = BT_DEVICE;
 	if (ioctl(fd, HCIGETDEVINFO, &dev_info) < 0) {
-		DEBUG("Cannot get BT info: %s(%d)", strerror(errno), errno);
+		ERR("Cannot get BT info: %s (%d)", strerror(errno), errno);
 		r = -errno;
 		goto out;
 	}
 
 	if (ioctl(fd, HCIDEVUP, dev_info.dev_id) < 0) {
-		DEBUG("Cannot raise BT dev %d: %s(%d)", dev_info.dev_id,
+		ERR("Cannot raise BT dev %d: %s(%d)", dev_info.dev_id,
 					strerror(errno), errno);
 		if (errno != ERFKILL && errno != EALREADY) {
 			r = -errno;
@@ -152,7 +122,7 @@ static int bluetooth_rfkill_device_probe(struct connman_device *device)
 		}
 	}
 
-	DEBUG("Probe done.");
+	INFO("Probe done.");
 
 out:
 	if (fd >= 0)
@@ -163,23 +133,23 @@ out:
 
 static void bluetooth_rfkill_device_remove(struct connman_device *device)
 {
-	DEBUG("device %p", device);
+	DBG("device %p", device);
 }
 
 static int bluetooth_rfkill_device_enable(struct connman_device *device)
 {
-	DEBUG("device %p", device);
+	DBG("device %p", device);
 	return 0;
 }
 
 static int bluetooth_rfkill_device_disable(struct connman_device *device)
 {
-	DEBUG("device %p", device);
+	DBG("device %p", device);
 	return 0;
 }
 
 static struct connman_device_driver dev_driver = {
-	.name = "bluetooth_rfkill",
+	.name = BLUETOOTH_RFKILL_IDENT,
 	.type = CONNMAN_DEVICE_TYPE_BLUETOOTH,
 	.probe = bluetooth_rfkill_device_probe,
 	.remove = bluetooth_rfkill_device_remove,
@@ -189,18 +159,18 @@ static struct connman_device_driver dev_driver = {
 
 static int bluetooth_rfkill_tech_probe(struct connman_technology *technology)
 {
-	DEBUG("technology %p", technology);
+	DBG("technology %p", technology);
 	rfkill_block(true);
 	return 0;
 }
 
 static void bluetooth_rfkill_tech_remove(struct connman_technology *technology)
 {
-	DEBUG("technology %p", technology);
+	DBG("technology %p", technology);
 }
 
 static struct connman_technology_driver tech_driver = {
-	.name = "bluetooth_rfkill",
+	.name = BLUETOOTH_RFKILL_IDENT,
 	.type = CONNMAN_SERVICE_TYPE_BLUETOOTH,
 	.probe = bluetooth_rfkill_tech_probe,
 	.remove = bluetooth_rfkill_tech_remove,
@@ -210,7 +180,7 @@ static int sailfish_rfkill_init(void)
 {
 	int err;
 
-	DEBUG("Initializing dummy device for BT rfkill.");
+	INFO("Initializing dummy device for BT rfkill.");
 
 	err = connman_device_driver_register(&dev_driver);
 	if (err < 0)
@@ -223,7 +193,7 @@ static int sailfish_rfkill_init(void)
 	}
 
 	/* Force loading of BT settings and applying BT rfkill */
-	bt_device = connman_device_create("bluetooth_rfkill",
+	bt_device = connman_device_create(BLUETOOTH_RFKILL_IDENT,
 					CONNMAN_DEVICE_TYPE_BLUETOOTH);
 	if (bt_device != NULL) {
 		connman_device_set_ident(bt_device, BLUETOOTH_RFKILL_IDENT);
@@ -240,7 +210,7 @@ static int sailfish_rfkill_init(void)
 
 static void sailfish_rfkill_exit(void)
 {
-	DEBUG("");
+	DBG("");
 
 	if (bt_device != NULL) {
 		connman_device_unregister(bt_device);
@@ -252,5 +222,6 @@ static void sailfish_rfkill_exit(void)
 	connman_device_driver_unregister(&dev_driver);
 }
 
-CONNMAN_PLUGIN_DEFINE(sailfish_rfkill, "Sailfish rfkill", CONNMAN_VERSION, CONNMAN_PLUGIN_PRIORITY_DEFAULT,
-                      sailfish_rfkill_init, sailfish_rfkill_exit)
+CONNMAN_PLUGIN_DEFINE(sailfish_rfkill, "Sailfish rfkill", CONNMAN_VERSION,
+		CONNMAN_PLUGIN_PRIORITY_DEFAULT, sailfish_rfkill_init,
+		sailfish_rfkill_exit)
