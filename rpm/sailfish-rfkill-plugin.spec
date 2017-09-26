@@ -8,9 +8,9 @@ URL: https://github.com/mer-hybris/sailfish-connman-plugin-rfkill
 Source: %{name}-%{version}.tar.bz2
 Requires: bluez
 Requires: bluez-libs
-Requires: connman
+Requires: connman >= 1.31+git44
 BuildRequires: bluez-libs-devel
-BuildRequires: connman-devel
+BuildRequires: connman-devel >= 1.31+git44
 Requires(post): /sbin/ldconfig
 Requires(postun): /sbin/ldconfig
 
