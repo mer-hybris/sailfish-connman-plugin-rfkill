@@ -2,7 +2,7 @@
  *
  *  Connection Manager Sailfish rfkill plugin
  *
- *  Copyright (C) 2016 Jolla Ltd.
+ *  Copyright (C) 2016-2017 Jolla Ltd.
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License version 2 as
@@ -25,12 +25,10 @@
  * adapter presence via BlueZ D-Bus API.
  */
 
-#include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <string.h>
-#include <syslog.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -43,26 +41,20 @@
 #include <connman/plugin.h>
 #include <connman/device.h>
 #include <connman/technology.h>
+#include <connman/log.h>
 
 #define BLUETOOTH_RFKILL_IDENT "bluetooth_rfkill"
 
 #define BT_DEVICE 0
 
-static struct connman_device *bt_device = NULL;
+#define ERR(fmt,arg...) connman_error(fmt, ## arg)
+#define INFO(fmt,arg...) connman_info(fmt, ## arg)
 
-#undef DBG
-#ifdef DEBUG
-#  define DBG(fmt,arg...) syslog(LOG_DEBUG, "%s() " fmt, __FUNCTION__ , ## arg)
-#else
-#  define DBG(fmt,arg...)
-#endif
-#define INFO(fmt,arg...) \
-	syslog(LOG_INFO, BLUETOOTH_RFKILL_IDENT ": " fmt, ## arg)
-#define ERR(fmt,arg...) \
-	syslog(LOG_ERR, BLUETOOTH_RFKILL_IDENT ": " fmt, ## arg)
+static struct connman_device *bt_device = NULL;
 
 void rfkill_block(bool block)
 {
+	const char *dev = "/dev/rfkill";
 	uint8_t rfkill_type;
 	struct rfkill_event event;
 	ssize_t len;
@@ -71,9 +63,9 @@ void rfkill_block(bool block)
 	DBG("block %d", block);
 	rfkill_type = RFKILL_TYPE_BLUETOOTH;
 
-	fd = open("/dev/rfkill", O_RDWR | O_CLOEXEC);
+	fd = open(dev, O_RDWR | O_CLOEXEC);
 	if (fd < 0) {
-		ERR("Failed to change RFKILL state: %s", strerror(errno));
+		ERR("Failed to open %s: %s", dev, strerror(errno));
 		return;
 	}
 
