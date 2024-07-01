@@ -24,7 +24,7 @@ make %{?jobs:-j%jobs} release
 
 %install
 rm -rf %{buildroot}
-%make_install
+make DESTDIR=%{buildroot} LIBDIR=%{_libdir} install
 
 mkdir -p %{buildroot}/%{_libdir}/connman/plugins
 %preun
