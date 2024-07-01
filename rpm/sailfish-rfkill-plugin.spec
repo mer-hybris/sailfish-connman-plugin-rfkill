@@ -1,5 +1,5 @@
 Name: sailfish-rfkill-plugin
-Version: 1.0.0
+Version: 1.0.1
 Release: 1
 Summary: Sailfish Connman rfkill plugin
 License: GPLv2
@@ -37,5 +37,4 @@ mkdir -p %{buildroot}/%{connmanplugindir}
 %postun -p /sbin/ldconfig
 
 %files
-%defattr(-,root,root,-)
 %{connmanplugindir}/sailfish-rfkill-plugin.so
