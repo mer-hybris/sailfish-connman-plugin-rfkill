@@ -1,5 +1,5 @@
 Name: sailfish-rfkill-plugin
-Version: 1.0.0
+Version: 1.0.1
 Release: 1
 Summary: Sailfish Connman rfkill plugin
 License: GPLv2
@@ -7,11 +7,13 @@ URL: https://github.com/mer-hybris/sailfish-connman-plugin-rfkill
 Source: %{name}-%{version}.tar.bz2
 Requires: bluez5
 Requires: bluez5-libs
-Requires: connman >= 1.31+git44
+Requires: connman >= 1.37
 BuildRequires: bluez5-libs-devel
-BuildRequires: connman-devel >= 1.31+git44
+BuildRequires: pkgconfig(connman) >= 1.37
 Requires(post): /sbin/ldconfig
 Requires(postun): /sbin/ldconfig
+
+%define connmanplugindir %(pkg-config --variable=plugindir connman)
 
 %description
 This package contains the Sailfish Connman rfkill plugin library.
@@ -24,9 +26,10 @@ make %{?jobs:-j%jobs} release
 
 %install
 rm -rf %{buildroot}
-%make_install
+make DESTDIR=%{buildroot} LIBDIR=%{_libdir} install
 
-mkdir -p %{buildroot}/%{_libdir}/connman/plugins
+mkdir -p %{buildroot}/%{connmanplugindir}
+
 %preun
 
 %post -p /sbin/ldconfig
@@ -34,5 +37,4 @@ mkdir -p %{buildroot}/%{_libdir}/connman/plugins
 %postun -p /sbin/ldconfig
 
 %files
-%defattr(-,root,root,-)
-%{_libdir}/connman/plugins/sailfish-rfkill-plugin.so
+%{connmanplugindir}/sailfish-rfkill-plugin.so

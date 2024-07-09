@@ -30,6 +30,8 @@ SRC_DIR = src
 BUILD_DIR = build
 DEBUG_BUILD_DIR = $(BUILD_DIR)/debug
 RELEASE_BUILD_DIR = $(BUILD_DIR)/release
+LIBDIR ?= /usr/lib
+ABS_LIBDIR := $(shell echo /$(LIBDIR) | sed -r 's|/+|/|g')
 
 #
 # Tools and flags
@@ -39,7 +41,8 @@ CC = $(CROSS_COMPILE)gcc
 LD = $(CC)
 WARNINGS = -Wall
 BASE_FLAGS = -fPIC
-FULL_CFLAGS = $(BASE_FLAGS) $(CFLAGS) $(DEFINES) $(WARNINGS) -MMD -MP
+ADD_CFLAGS=`pkg-config --cflags dbus-1`
+FULL_CFLAGS = $(BASE_FLAGS) $(ADD_CFLAGS) $(CFLAGS) $(DEFINES) $(WARNINGS) -MMD -MP
 FULL_LDFLAGS = $(BASE_FLAGS) $(LDFLAGS) -shared -Wl,-soname -Wl,$(LIB_SONAME)
 DEBUG_FLAGS = -g
 RELEASE_FLAGS = -g
@@ -113,7 +116,7 @@ INSTALL_GROUP = $(shell id -g)
 INSTALL = install
 INSTALL_DIRS = $(INSTALL) -d
 INSTALL_FILES = $(INSTALL) -m $(INSTALL_PERM)
-INSTALL_LIB_DIR = $(DESTDIR)/usr/lib/connman/plugins
+INSTALL_LIB_DIR = $(DESTDIR)$(ABS_LIBDIR)/connman/plugins
 
 install: $(INSTALL_LIB_DIR)
 	$(INSTALL_FILES) $(RELEASE_LIB) $(INSTALL_LIB_DIR)
